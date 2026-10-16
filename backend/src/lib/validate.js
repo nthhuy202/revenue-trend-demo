@@ -6,11 +6,26 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 const fail = (error) => ({ ok: false, error });
 
-// Accepts numbers or numeric strings; rejects blank, null, NaN, negatives.
+// Limits of the Postgres columns: NUMERIC(12,2) and INTEGER.
+const MAX_MONEY = 9_999_999_999.99;
+const MAX_COVERS = 2_147_483_647;
+const NUMERIC_STRING = /^\d+(\.\d{1,2})?$/;
+
+// Accepts a finite number or a plain decimal string ('1734.5'); anything else → NaN.
+function toNumber(raw) {
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : NaN;
+  if (typeof raw === 'string' && NUMERIC_STRING.test(raw)) return Number(raw);
+  return NaN;
+}
+
 function toAmount(raw) {
-  if (raw === null || raw === undefined || (typeof raw === 'string' && raw.trim() === '')) return NaN;
-  const n = Number(raw);
-  return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : NaN;
+  const n = toNumber(raw);
+  return n >= 0 && n <= MAX_MONEY ? Math.round(n * 100) / 100 : NaN;
+}
+
+function toCovers(raw) {
+  const n = toNumber(raw);
+  return Number.isInteger(n) && n >= 0 && n <= MAX_COVERS ? n : NaN;
 }
 
 export function isValidDate(str) {
@@ -30,10 +45,10 @@ export function validateDays(week, days) {
     const clean = { date: day.date };
     for (const field of MONEY_FIELDS) {
       clean[field] = toAmount(day[field]);
-      if (Number.isNaN(clean[field])) return fail(`${field} on ${day.date} must be a number ≥ 0`);
+      if (Number.isNaN(clean[field])) return fail(`${field} on ${day.date} must be a number between 0 and 9,999,999,999.99`);
     }
-    const covers = toAmount(day.covers);
-    if (!Number.isInteger(covers)) return fail(`covers on ${day.date} must be a whole number ≥ 0`);
+    const covers = toCovers(day.covers);
+    if (Number.isNaN(covers)) return fail(`covers on ${day.date} must be a whole number ≥ 0`);
     clean.covers = covers;
     value.push(clean);
   }

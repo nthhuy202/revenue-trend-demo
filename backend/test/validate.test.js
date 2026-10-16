@@ -53,3 +53,36 @@ test('validateEvent rejects unknown impact, empty label and bad date', () => {
   assert.equal(validateEvent({ date: '2026-10-16', impact: 'positive', label: '   ' }).ok, false);
   assert.equal(validateEvent({ date: '2026-13-40', impact: 'positive', label: 'x' }).ok, false);
 });
+
+test('validateDays rejects non-numeric types that Number() would coerce', () => {
+  for (const bad of [true, [5], '0x10', '1e3', ' 12 ']) {
+    const days = validDays();
+    days[0].posRevenue = bad;
+    assert.equal(validateDays('2026-W42', days).ok, false, `value ${JSON.stringify(bad)}`);
+  }
+});
+
+test('validateDays rejects covers with any fractional part', () => {
+  const days = validDays();
+  days[0].covers = 1.001;
+  assert.equal(validateDays('2026-W42', days).ok, false);
+});
+
+test('validateDays rejects values the database columns cannot hold', () => {
+  const money = validDays();
+  money[0].labourCosts = 1e11;
+  assert.equal(validateDays('2026-W42', money).ok, false);
+  const covers = validDays();
+  covers[0].covers = 3e9;
+  assert.equal(validateDays('2026-W42', covers).ok, false);
+});
+
+test('validateDays accepts numeric strings with up to two decimals', () => {
+  const days = validDays();
+  days[0].posRevenue = '1734.5';
+  days[0].covers = '118';
+  const result = validateDays('2026-W42', days);
+  assert.equal(result.ok, true);
+  assert.equal(result.value[0].posRevenue, 1734.5);
+  assert.equal(result.value[0].covers, 118);
+});

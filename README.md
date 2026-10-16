@@ -29,7 +29,7 @@ Skip anything you already have.
 # follow the "Next steps" Homebrew prints to add brew to your PATH, then:
 
 brew install git
-brew install --cask docker   # Docker Desktop
+brew install --cask docker-desktop   # or download Docker Desktop from https://www.docker.com
 open -a Docker               # start it once and wait until it says "Docker Desktop is running"
 ```
 
@@ -81,14 +81,20 @@ This starts PostgreSQL 16 with user `revenue`, password `revenue`, database `rev
 
 ```bash
 cd backend
-cp .env.example .env     # defaults work as-is for local use
+cp .env.example .env
+# replace the placeholder JWT secret with a random one (works on macOS and Linux)
+sed -i.bak "s/^JWT_SECRET=.*/JWT_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")/" .env && rm .env.bak
 npm ci                   # also generates the Prisma client
 npm run db:migrate       # creates the tables (prisma migrate deploy)
-npm run db:seed          # admin account + this week's and last week's sample data
+npm run db:seed          # admin account + sample data from last week to 3 weeks ahead
 npm run dev              # API on http://localhost:4000
 ```
 
-Leave this terminal running.
+Leave this terminal running. The API refuses to start if `JWT_SECRET` is empty.
+
+The seed only **creates what is missing**: running it again never overwrites numbers or events
+you edited in the admin. If you open the demo more than ~3 weeks later, run `npm run db:seed`
+again to add sample data for the new weeks.
 
 ## 5. Frontend: install and run
 
@@ -110,7 +116,8 @@ npm run dev              # app on http://localhost:3000
 | Admin login | http://localhost:3000/admin/login |
 
 Admin credentials (from the seed): **`admin@example.com` / `admin123`**
-(change them with `ADMIN_EMAIL` / `ADMIN_PASSWORD` in `backend/.env`, then run `npm run db:seed` again).
+(change them with `ADMIN_EMAIL` / `ADMIN_PASSWORD` in `backend/.env`, then run `npm run db:seed` again;
+this updates the admin account and leaves your data alone).
 
 In the admin you can switch week, edit the 7 days (POS, Eatclub, labour, covers), save, and
 add/delete events. Open the chart again (or click **View chart for this week**) and it shows the
@@ -129,7 +136,8 @@ npm test
 
 Unit tests (Node's built-in test runner) cover ISO-week maths (including the 2026 → 2027
 53-week boundary), summary / percentage calculation, Decimal → number serialization,
-timezone safety, input validation and the 401 / 400 responses. They do not need the database.
+timezone safety, input validation (including values too large for the database columns),
+the 401 / 400 responses and the missing-`JWT_SECRET` startup check. They do not need the database.
 
 ## Database migrations
 

@@ -2,7 +2,7 @@
 const DAY_MS = 86_400_000;
 const WEEK_RE = /^(\d{4})-W(\d{2})$/;
 
-const toDateStr = (d) => d.toISOString().slice(0, 10);
+export const toDateStr = (d) => d.toISOString().slice(0, 10);
 
 // Monday of ISO week 1 = the Monday on or before Jan 4th.
 function week1Monday(year) {

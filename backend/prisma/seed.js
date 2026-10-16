@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@prisma/client';
-import { currentIsoWeek, previousWeek, weekDates } from '../src/lib/week.js';
+import { currentIsoWeek, previousWeek, nextWeek, weekDates } from '../src/lib/week.js';
 
 const prisma = new PrismaClient();
 
@@ -17,46 +17,57 @@ const PREVIOUS = {
   labour: [560, 640, 790, 640, 660, 780, 1080],
   covers: [109, 124, 108, 126, 127, 134, 124],
 };
+const FUTURE_WEEKS = 3; // so the demo still has data after the week rolls over
 
+const scale = (values, factor, step) => values.map((v) => Math.round((v * factor) / step) * step);
+
+// Create-only: never overwrites figures or events an admin has edited.
 async function seedWeek(week, data) {
   const dates = weekDates(week);
-  for (const [i, d] of dates.entries()) {
-    const values = {
+  await prisma.dailyMetric.createMany({
+    data: dates.map((d, i) => ({
+      date: new Date(d),
       posRevenue: data.pos[i],
       eatclubRevenue: data.eatclub[i],
       labourCosts: data.labour[i],
       covers: data.covers[i],
-    };
-    await prisma.dailyMetric.upsert({
-      where: { date: new Date(d) },
-      update: values,
-      create: { date: new Date(d), ...values },
+    })),
+    skipDuplicates: true,
+  });
+
+  const range = { gte: new Date(dates[0]), lte: new Date(dates[6]) };
+  if ((await prisma.event.count({ where: { date: range } })) === 0) {
+    await prisma.event.createMany({
+      data: [
+        { date: new Date(dates[4]), impact: 'negative', label: 'Rainy day' },
+        { date: new Date(dates[5]), impact: 'positive', label: 'Local festival' },
+      ],
     });
   }
-  return dates;
 }
 
 async function main() {
-  const email = process.env.ADMIN_EMAIL || 'admin@example.com';
+  const email = (process.env.ADMIN_EMAIL || 'admin@example.com').trim().toLowerCase();
   const password = process.env.ADMIN_PASSWORD || 'admin123';
   const passwordHash = await bcrypt.hash(password, 10);
   await prisma.adminUser.upsert({ where: { email }, update: { passwordHash }, create: { email, passwordHash } });
 
-  const week = currentIsoWeek();
-  const current = await seedWeek(week, CURRENT);
-  const previous = await seedWeek(previousWeek(week), PREVIOUS);
+  const thisWeek = currentIsoWeek();
+  await seedWeek(previousWeek(thisWeek), PREVIOUS);
+  await seedWeek(thisWeek, CURRENT);
+  let week = thisWeek;
+  for (let i = 1; i <= FUTURE_WEEKS; i++) {
+    week = nextWeek(week);
+    const f = 1 + 0.02 * i;
+    await seedWeek(week, {
+      pos: scale(CURRENT.pos, f, 10),
+      eatclub: scale(CURRENT.eatclub, f, 10),
+      labour: scale(CURRENT.labour, 1 + 0.01 * i, 10),
+      covers: scale(CURRENT.covers, f, 1),
+    });
+  }
 
-  await prisma.event.deleteMany({
-    where: { date: { gte: new Date(previous[0]), lte: new Date(current[6]) } },
-  });
-  await prisma.event.createMany({
-    data: [
-      { date: new Date(current[4]), impact: 'negative', label: 'Rainy day' },
-      { date: new Date(current[5]), impact: 'positive', label: 'Local festival' },
-    ],
-  });
-
-  console.log(`Seeded admin ${email}, weeks ${previousWeek(week)} and ${week}`);
+  console.log(`Seeded admin ${email} and weeks ${previousWeek(thisWeek)} to ${week} (existing data kept)`);
 }
 
 main()

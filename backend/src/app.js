@@ -1,6 +1,8 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import { router as revenueTrend } from './routes/revenueTrend.js';
+import { router as auth } from './routes/auth.js';
+import { router as admin } from './routes/admin.js';
 
 export function createApp() {
   const app = express();
@@ -8,6 +10,8 @@ export function createApp() {
   app.use(cookieParser());
 
   app.use('/api', revenueTrend);
+  app.use('/api', auth);
+  app.use('/api', admin);
 
   app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
   app.use((err, req, res, next) => {

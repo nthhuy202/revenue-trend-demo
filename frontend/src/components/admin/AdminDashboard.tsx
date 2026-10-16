@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, LogOut } from "lucide-react";
@@ -30,12 +30,20 @@ export default function AdminDashboard({ week: weekParam }: { week?: string }) {
     api<{ email: string }>("/api/auth/me").then((me) => setEmail(me.email), onAuthError);
   }, [onAuthError]);
 
+  // Drop responses for a week the admin has already navigated away from (slow request + quick clicks).
+  const viewedWeek = useRef(week);
+  viewedWeek.current = week;
   const load = useCallback(() => {
     setError(null);
-    api<AdminWeek>(`/api/admin/weeks/${week}`).then(setData, onAuthError);
+    api<AdminWeek>(`/api/admin/weeks/${week}`).then((res) => {
+      if (res.week === viewedWeek.current) setData(res);
+    }, onAuthError);
   }, [week, onAuthError]);
 
   useEffect(load, [load]);
+
+  // Only show data that belongs to the week in the URL; editors copy it into local state on mount.
+  const current = data?.week === week ? data : null;
 
   async function logout() {
     await api("/api/auth/logout", { method: "POST" });
@@ -48,7 +56,7 @@ export default function AdminDashboard({ week: weekParam }: { week?: string }) {
     router.push(`/admin?week=${w}`);
   };
 
-  const range = data ? `${formatDayMonth(data.days[0].date)} – ${formatDayMonth(data.days[6].date)}` : "…";
+  const range = current ? `${formatDayMonth(current.days[0].date)} – ${formatDayMonth(current.days[6].date)}` : "…";
 
   return (
     <main className="mx-auto max-w-[960px] space-y-5 px-4 py-6 sm:px-5 sm:py-8">
@@ -104,10 +112,10 @@ export default function AdminDashboard({ week: weekParam }: { week?: string }) {
         </p>
       )}
 
-      {data ? (
+      {current ? (
         <>
-          <WeekEditor key={`days-${week}`} week={week} days={data.days} onSaved={setData} />
-          <EventsEditor key={`events-${week}`} days={data.days} events={data.events} onChanged={load} />
+          <WeekEditor key={`days-${current.week}`} week={current.week} days={current.days} onSaved={setData} />
+          <EventsEditor key={`events-${current.week}`} days={current.days} events={current.events} onChanged={load} />
         </>
       ) : (
         !error && <div className="h-64 animate-pulse rounded-2xl bg-neutral-100" aria-label="Loading" />

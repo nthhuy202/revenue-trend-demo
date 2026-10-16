@@ -121,7 +121,11 @@ export default function RevenueTrendCard({ week }: Props) {
             <TrendChart data={data} visible={visible} compare={compare} />
           </div>
           <div className="mt-6">
-            <ChartLegend visible={visible} compare={compare} />
+            <ChartLegend
+              visible={visible}
+              compare={compare}
+              showPrev={compare && data.previous.days.some((d) => d.hasData)}
+            />
           </div>
         </>
       )}

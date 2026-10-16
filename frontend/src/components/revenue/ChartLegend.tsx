@@ -1,17 +1,18 @@
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { COLORS, type Visible } from "./series";
 
-type Props = { visible: Visible; compare: boolean };
+// showPrev: compare mode AND the previous week has data (otherwise no previous bars are drawn).
+type Props = { visible: Visible; compare: boolean; showPrev: boolean };
 
-export default function ChartLegend({ visible, compare }: Props) {
+export default function ChartLegend({ visible, compare, showPrev }: Props) {
   const items = compare
     ? [
         visible.pos && { color: COLORS.pos, label: "POS Revenue (Current)" },
         visible.eatclub && { color: COLORS.eatclub, label: "Eatclub Revenue (Current)" },
         visible.labour && { color: COLORS.labour, label: "Labour Costs (Current)" },
-        visible.pos && { color: COLORS.prevPos, label: "Direct Revenue (Previous)" },
-        visible.eatclub && { color: COLORS.prevEatclub, label: "Total Revenue (Previous)" },
-        visible.labour && { color: COLORS.prevLabour, label: "Labour Costs (Previous)" },
+        showPrev && visible.pos && { color: COLORS.prevPos, label: "Direct Revenue (Previous)" },
+        showPrev && visible.eatclub && { color: COLORS.prevEatclub, label: "Total Revenue (Previous)" },
+        showPrev && visible.labour && { color: COLORS.prevLabour, label: "Labour Costs (Previous)" },
       ]
     : [
         visible.pos && { color: COLORS.pos, label: "POS Revenue" },

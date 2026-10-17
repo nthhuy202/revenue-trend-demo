@@ -9,7 +9,9 @@ export const metadata: Metadata = {
   description: "Weekly revenue trend with admin-managed data",
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+type RootLayoutProps = Readonly<{ children: React.ReactNode }>;
+
+export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en">
       <body className={`${inter.variable} font-sans antialiased`}>{children}</body>

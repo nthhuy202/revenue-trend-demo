@@ -4,56 +4,64 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, LogOut } from "lucide-react";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, getErrorMessage } from "@/lib/api";
 import { formatDayMonth } from "@/lib/format";
-import type { AdminWeek } from "@/lib/types";
-import { currentIsoWeek, shiftWeek } from "@/lib/week";
+import type { AdminWeek, AuthUser } from "@/lib/types";
+import { getCurrentIsoWeek, shiftWeek } from "@/lib/week";
 import EventsEditor from "./EventsEditor";
 import WeekEditor from "./WeekEditor";
 
-export default function AdminDashboard({ week: weekParam }: { week?: string }) {
+type AdminDashboardProps = { week?: string };
+
+const UNAUTHORIZED = 401;
+
+export default function AdminDashboard({ week: weekParam }: AdminDashboardProps) {
   const router = useRouter();
-  const week = weekParam ?? currentIsoWeek();
+  const week = weekParam ?? getCurrentIsoWeek();
   const [email, setEmail] = useState<string | null>(null);
   const [data, setData] = useState<AdminWeek | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const onAuthError = useCallback(
-    (err: unknown) => {
-      if (err instanceof ApiError && err.status === 401) router.replace("/admin/login");
-      else setError((err as Error).message);
+  const handleRequestError = useCallback(
+    (requestError: unknown) => {
+      if (requestError instanceof ApiError && requestError.status === UNAUTHORIZED) router.replace("/admin/login");
+      else setError(getErrorMessage(requestError));
     },
     [router],
   );
 
   useEffect(() => {
-    api<{ email: string }>("/api/auth/me").then((me) => setEmail(me.email), onAuthError);
-  }, [onAuthError]);
+    api<AuthUser>("/api/auth/me").then((user) => setEmail(user.email), handleRequestError);
+  }, [handleRequestError]);
 
   // Drop responses for a week the admin has already navigated away from (slow request + quick clicks).
   const viewedWeek = useRef(week);
   viewedWeek.current = week;
-  const load = useCallback(() => {
+  const loadWeek = useCallback(() => {
     setError(null);
-    api<AdminWeek>(`/api/admin/weeks/${week}`).then((res) => {
-      if (res.week === viewedWeek.current) setData(res);
-    }, onAuthError);
-  }, [week, onAuthError]);
+    api<AdminWeek>(`/api/admin/weeks/${week}`).then((weekData) => {
+      if (weekData.week === viewedWeek.current) setData(weekData);
+    }, handleRequestError);
+  }, [week, handleRequestError]);
 
-  useEffect(load, [load]);
+  useEffect(loadWeek, [loadWeek]);
 
   // Only show data that belongs to the week in the URL; editors copy it into local state on mount.
   const current = data?.week === week ? data : null;
 
-  async function logout() {
-    await api("/api/auth/logout", { method: "POST" });
-    router.replace("/admin/login");
-    router.refresh();
+  async function handleLogout() {
+    try {
+      await api("/api/auth/logout", { method: "POST" });
+      router.replace("/admin/login");
+      router.refresh();
+    } catch (logoutError) {
+      setError(getErrorMessage(logoutError));
+    }
   }
 
-  const goTo = (w: string) => {
+  const goToWeek = (targetWeek: string) => {
     setData(null);
-    router.push(`/admin?week=${w}`);
+    router.push(`/admin?week=${targetWeek}`);
   };
 
   const range = current ? `${formatDayMonth(current.days[0].date)} – ${formatDayMonth(current.days[6].date)}` : "…";
@@ -67,7 +75,7 @@ export default function AdminDashboard({ week: weekParam }: { week?: string }) {
         </div>
         <button
           type="button"
-          onClick={logout}
+          onClick={handleLogout}
           className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm hover:bg-neutral-50"
         >
           <LogOut className="size-4" /> Log out
@@ -79,7 +87,7 @@ export default function AdminDashboard({ week: weekParam }: { week?: string }) {
           <button
             type="button"
             aria-label="Previous week"
-            onClick={() => goTo(shiftWeek(week, -1))}
+            onClick={() => goToWeek(shiftWeek(week, -1))}
             className="rounded-lg border border-neutral-200 p-1.5 hover:bg-neutral-50"
           >
             <ChevronLeft className="size-4" />
@@ -90,13 +98,13 @@ export default function AdminDashboard({ week: weekParam }: { week?: string }) {
           <button
             type="button"
             aria-label="Next week"
-            onClick={() => goTo(shiftWeek(week, 1))}
+            onClick={() => goToWeek(shiftWeek(week, 1))}
             className="rounded-lg border border-neutral-200 p-1.5 hover:bg-neutral-50"
           >
             <ChevronRight className="size-4" />
           </button>
-          {week !== currentIsoWeek() && (
-            <button type="button" onClick={() => goTo(currentIsoWeek())} className="text-sm text-neutral-600 underline">
+          {week !== getCurrentIsoWeek() && (
+            <button type="button" onClick={() => goToWeek(getCurrentIsoWeek())} className="text-sm text-neutral-600 underline">
               This week
             </button>
           )}
@@ -115,7 +123,7 @@ export default function AdminDashboard({ week: weekParam }: { week?: string }) {
       {current ? (
         <>
           <WeekEditor key={`days-${current.week}`} week={current.week} days={current.days} onSaved={setData} />
-          <EventsEditor key={`events-${current.week}`} days={current.days} events={current.events} onChanged={load} />
+          <EventsEditor key={`events-${current.week}`} days={current.days} events={current.events} onChanged={loadWeek} />
         </>
       ) : (
         !error && <div className="h-64 animate-pulse rounded-2xl bg-neutral-100" aria-label="Loading" />

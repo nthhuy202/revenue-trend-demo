@@ -25,3 +25,5 @@ export type RevenueTrendResponse = {
 };
 
 export type AdminWeek = { week: string; days: Day[]; events: RevenueEvent[] };
+
+export type AuthUser = { email: string };

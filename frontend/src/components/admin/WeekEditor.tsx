@@ -1,47 +1,55 @@
 "use client";
 
 import { useState } from "react";
-import { api } from "@/lib/api";
+import { api, getErrorMessage } from "@/lib/api";
 import { formatDayMonth } from "@/lib/format";
 import type { AdminWeek, Day } from "@/lib/types";
 
-const FIELDS = [
+type WeekEditorProps = { week: string; days: Day[]; onSaved: (data: AdminWeek) => void };
+
+type FieldKey = "posRevenue" | "eatclubRevenue" | "labourCosts" | "covers";
+
+type DayField = { key: FieldKey; label: string; step: string };
+
+// Inputs keep the text as typed; the server validates and rejects blanks/negatives.
+type Row = { date: string; weekday: string } & Record<FieldKey, string>;
+
+type SaveStatus = { kind: "error" | "ok"; text: string };
+
+const DAY_FIELDS: DayField[] = [
   { key: "posRevenue", label: "POS Revenue ($)", step: "0.01" },
   { key: "eatclubRevenue", label: "Eatclub Revenue ($)", step: "0.01" },
   { key: "labourCosts", label: "Labour Costs ($)", step: "0.01" },
   { key: "covers", label: "Covers", step: "1" },
-] as const;
+];
 
-type FieldKey = (typeof FIELDS)[number]["key"];
-type Row = { date: string; weekday: string } & Record<FieldKey, string>;
-
-const toRows = (days: Day[]): Row[] =>
-  days.map((d) => ({
-    date: d.date,
-    weekday: d.weekday,
-    posRevenue: String(d.posRevenue),
-    eatclubRevenue: String(d.eatclubRevenue),
-    labourCosts: String(d.labourCosts),
-    covers: String(d.covers),
+const mapDaysToRows = (days: Day[]): Row[] =>
+  days.map((day) => ({
+    date: day.date,
+    weekday: day.weekday,
+    posRevenue: String(day.posRevenue),
+    eatclubRevenue: String(day.eatclubRevenue),
+    labourCosts: String(day.labourCosts),
+    covers: String(day.covers),
   }));
 
-type Props = { week: string; days: Day[]; onSaved: (data: AdminWeek) => void };
+const getStatusClass = (status: SaveStatus) => (status.kind === "ok" ? "text-sm text-green-700" : "text-sm text-red-700");
 
-export default function WeekEditor({ week, days, onSaved }: Props) {
-  const [rows, setRows] = useState(() => toRows(days));
-  const [status, setStatus] = useState<{ kind: "error" | "ok"; text: string } | null>(null);
-  const [saving, setSaving] = useState(false);
+export default function WeekEditor({ week, days, onSaved }: WeekEditorProps) {
+  const [rows, setRows] = useState(() => mapDaysToRows(days));
+  const [status, setStatus] = useState<SaveStatus | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const update = (i: number, key: FieldKey, value: string) => {
+  const updateField = (rowIndex: number, key: FieldKey, value: string) => {
     setStatus(null);
-    setRows((rs) => rs.map((r, j) => (j === i ? { ...r, [key]: value } : r)));
+    setRows((currentRows) => currentRows.map((row, index) => (index === rowIndex ? { ...row, [key]: value } : row)));
   };
 
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
+  async function handleSave(event: React.SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSaving(true);
+
     try {
-      // Strings go to the API as typed; the server validates and rejects blanks/negatives.
       const payload = rows.map(({ date, posRevenue, eatclubRevenue, labourCosts, covers }) => ({
         date,
         posRevenue,
@@ -54,17 +62,17 @@ export default function WeekEditor({ week, days, onSaved }: Props) {
         body: JSON.stringify({ days: payload }),
       });
       onSaved(saved);
-      setRows(toRows(saved.days));
+      setRows(mapDaysToRows(saved.days));
       setStatus({ kind: "ok", text: "Saved — the chart now shows these numbers." });
-    } catch (err) {
-      setStatus({ kind: "error", text: (err as Error).message });
+    } catch (saveError) {
+      setStatus({ kind: "error", text: getErrorMessage(saveError) });
     } finally {
-      setSaving(false);
+      setIsSaving(false);
     }
   }
 
   return (
-    <form onSubmit={save} className="rounded-2xl border border-neutral-200 bg-white p-4 sm:p-5">
+    <form onSubmit={handleSave} className="rounded-2xl border border-neutral-200 bg-white p-4 sm:p-5">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="font-medium">Daily figures</h2>
         <p className="text-xs text-neutral-500">Total revenue = POS + Eatclub</p>
@@ -74,31 +82,31 @@ export default function WeekEditor({ week, days, onSaved }: Props) {
           <thead>
             <tr className="text-left text-neutral-500">
               <th className="py-2 pr-3 font-normal">Day</th>
-              {FIELDS.map((f) => (
-                <th key={f.key} className="px-1 py-2 font-normal">
-                  {f.label}
+              {DAY_FIELDS.map((field) => (
+                <th key={field.key} className="px-1 py-2 font-normal">
+                  {field.label}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {rows.map((r, i) => (
-              <tr key={r.date} className="border-t border-neutral-100">
+            {rows.map((row, rowIndex) => (
+              <tr key={row.date} className="border-t border-neutral-100">
                 <td className="py-2 pr-3 whitespace-nowrap">
-                  <span className="font-medium">{r.weekday}</span>{" "}
-                  <span className="text-neutral-500">{formatDayMonth(r.date)}</span>
+                  <span className="font-medium">{row.weekday}</span>{" "}
+                  <span className="text-neutral-500">{formatDayMonth(row.date)}</span>
                 </td>
-                {FIELDS.map((f) => (
-                  <td key={f.key} className="px-1 py-1.5">
+                {DAY_FIELDS.map((field) => (
+                  <td key={field.key} className="px-1 py-1.5">
                     <input
                       type="number"
                       inputMode="decimal"
                       min="0"
-                      step={f.step}
+                      step={field.step}
                       required
-                      aria-label={`${f.label} ${r.weekday}`}
-                      value={r[f.key]}
-                      onChange={(e) => update(i, f.key, e.target.value)}
+                      aria-label={`${field.label} ${row.weekday}`}
+                      value={row[field.key]}
+                      onChange={(event) => updateField(rowIndex, field.key, event.target.value)}
                       className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 tabular-nums outline-none focus:border-neutral-900"
                     />
                   </td>
@@ -111,13 +119,13 @@ export default function WeekEditor({ week, days, onSaved }: Props) {
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <button
           type="submit"
-          disabled={saving}
+          disabled={isSaving}
           className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
         >
-          {saving ? "Saving…" : "Save week"}
+          {isSaving ? "Saving…" : "Save week"}
         </button>
         {status && (
-          <p role="status" className={`text-sm ${status.kind === "ok" ? "text-green-700" : "text-red-700"}`}>
+          <p role="status" className={getStatusClass(status)}>
             {status.text}
           </p>
         )}

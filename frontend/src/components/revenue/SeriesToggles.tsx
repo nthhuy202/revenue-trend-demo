@@ -1,8 +1,8 @@
 import { COLORS, SERIES, type SeriesKey, type Visible } from "./series";
 
-type Props = { visible: Visible; onToggle: (key: SeriesKey) => void };
+type SeriesTogglesProps = { visible: Visible; onToggle: (key: SeriesKey) => void };
 
-export default function SeriesToggles({ visible, onToggle }: Props) {
+export default function SeriesToggles({ visible, onToggle }: SeriesTogglesProps) {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
       {SERIES.map(({ key, label }) => (

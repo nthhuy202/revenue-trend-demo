@@ -2,46 +2,53 @@
 
 import { useId, useState } from "react";
 import { Trash2, TrendingDown, TrendingUp } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, getErrorMessage } from "@/lib/api";
 import { formatDayMonth } from "@/lib/format";
 import type { Day, RevenueEvent } from "@/lib/types";
 
-type Props = { days: Day[]; events: RevenueEvent[]; onChanged: () => void };
+type EventsEditorProps = { days: Day[]; events: RevenueEvent[]; onChanged: () => void };
 
-export default function EventsEditor({ days, events, onChanged }: Props) {
-  const [date, setDate] = useState(days[0].date);
-  const [impact, setImpact] = useState<RevenueEvent["impact"]>("positive");
-  const [label, setLabel] = useState("");
+type EventFields = { date: string; impact: RevenueEvent["impact"]; label: string };
+
+const INPUT_CLASS = "rounded-lg border border-neutral-300 px-2 py-1.5 text-sm outline-none focus:border-neutral-900";
+
+const getImpactIconClass = (impact: RevenueEvent["impact"]) =>
+  impact === "positive" ? "size-4 text-green-600" : "size-4 text-red-600";
+
+const isImpact = (value: string): value is RevenueEvent["impact"] => value === "positive" || value === "negative";
+
+export default function EventsEditor({ days, events, onChanged }: EventsEditorProps) {
+  const [fields, setFields] = useState<EventFields>({ date: days[0].date, impact: "positive", label: "" });
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const id = useId();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const formId = useId();
 
-  async function add(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
+  async function handleAdd(event: React.SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSubmitting(true);
     setError(null);
+
     try {
-      await api("/api/admin/events", { method: "POST", body: JSON.stringify({ date, impact, label }) });
-      setLabel("");
+      await api("/api/admin/events", { method: "POST", body: JSON.stringify(fields) });
+      setFields({ ...fields, label: "" });
       onChanged();
-    } catch (err) {
-      setError((err as Error).message);
+    } catch (addError) {
+      setError(getErrorMessage(addError));
     } finally {
-      setBusy(false);
+      setIsSubmitting(false);
     }
   }
 
-  async function remove(id: number) {
+  async function handleDelete(eventId: number) {
     setError(null);
+
     try {
-      await api(`/api/admin/events/${id}`, { method: "DELETE" });
+      await api(`/api/admin/events/${eventId}`, { method: "DELETE" });
       onChanged();
-    } catch (err) {
-      setError((err as Error).message);
+    } catch (deleteError) {
+      setError(getErrorMessage(deleteError));
     }
   }
-
-  const inputClass = "rounded-lg border border-neutral-300 px-2 py-1.5 text-sm outline-none focus:border-neutral-900";
 
   return (
     <section className="rounded-2xl border border-neutral-200 bg-white p-4 sm:p-5">
@@ -50,22 +57,23 @@ export default function EventsEditor({ days, events, onChanged }: Props) {
         <p className="text-sm text-neutral-500">No events this week.</p>
       ) : (
         <ul className="divide-y divide-neutral-100">
-          {events.map((ev) => {
-            const Icon = ev.impact === "positive" ? TrendingUp : TrendingDown;
-            const day = days.find((d) => d.date === ev.date);
+          {events.map((revenueEvent) => {
+            const Icon = revenueEvent.impact === "positive" ? TrendingUp : TrendingDown;
+            const day = days.find((weekDay) => weekDay.date === revenueEvent.date);
+
             return (
-              <li key={ev.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+              <li key={revenueEvent.id} className="flex items-center justify-between gap-3 py-2 text-sm">
                 <span className="flex items-center gap-2">
-                  <Icon className={`size-4 ${ev.impact === "positive" ? "text-green-600" : "text-red-600"}`} />
+                  <Icon className={getImpactIconClass(revenueEvent.impact)} />
                   <span className="text-neutral-500">
-                    {day?.weekday} {formatDayMonth(ev.date)}
+                    {day?.weekday} {formatDayMonth(revenueEvent.date)}
                   </span>
-                  {ev.label}
+                  {revenueEvent.label}
                 </span>
                 <button
                   type="button"
-                  aria-label={`Delete event ${ev.label}`}
-                  onClick={() => remove(ev.id)}
+                  aria-label={`Delete event ${revenueEvent.label}`}
+                  onClick={() => handleDelete(revenueEvent.id)}
                   className="rounded-lg p-1.5 text-neutral-500 hover:bg-red-50 hover:text-red-600"
                 >
                   <Trash2 className="size-4" />
@@ -76,39 +84,51 @@ export default function EventsEditor({ days, events, onChanged }: Props) {
         </ul>
       )}
 
-      <form onSubmit={add} className="mt-4 flex flex-wrap items-end gap-2 border-t border-neutral-100 pt-4">
+      <form onSubmit={handleAdd} className="mt-4 flex flex-wrap items-end gap-2 border-t border-neutral-100 pt-4">
         <div className="flex flex-col gap-1 text-xs text-neutral-500">
-          <label htmlFor={`${id}-day`}>Day</label>
-          <select id={`${id}-day`} value={date} onChange={(e) => setDate(e.target.value)} className={inputClass}>
-            {days.map((d) => (
-              <option key={d.date} value={d.date}>
-                {d.weekday} {formatDayMonth(d.date)}
+          <label htmlFor={`${formId}-day`}>Day</label>
+          <select
+            id={`${formId}-day`}
+            value={fields.date}
+            onChange={(event) => setFields({ ...fields, date: event.target.value })}
+            className={INPUT_CLASS}
+          >
+            {days.map((day) => (
+              <option key={day.date} value={day.date}>
+                {day.weekday} {formatDayMonth(day.date)}
               </option>
             ))}
           </select>
         </div>
         <div className="flex flex-col gap-1 text-xs text-neutral-500">
-          <label htmlFor={`${id}-impact`}>Impact</label>
-          <select id={`${id}-impact`} value={impact} onChange={(e) => setImpact(e.target.value as RevenueEvent["impact"])} className={inputClass}>
+          <label htmlFor={`${formId}-impact`}>Impact</label>
+          <select
+            id={`${formId}-impact`}
+            value={fields.impact}
+            onChange={(event) => {
+              if (isImpact(event.target.value)) setFields({ ...fields, impact: event.target.value });
+            }}
+            className={INPUT_CLASS}
+          >
             <option value="positive">Positive</option>
             <option value="negative">Negative</option>
           </select>
         </div>
         <div className="flex min-w-[180px] flex-1 flex-col gap-1 text-xs text-neutral-500">
-          <label htmlFor={`${id}-label`}>Label</label>
+          <label htmlFor={`${formId}-label`}>Label</label>
           <input
-            id={`${id}-label`}
+            id={`${formId}-label`}
             required
             maxLength={80}
             placeholder="e.g. Local festival"
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            className={inputClass}
+            value={fields.label}
+            onChange={(event) => setFields({ ...fields, label: event.target.value })}
+            className={INPUT_CLASS}
           />
         </div>
         <button
           type="submit"
-          disabled={busy}
+          disabled={isSubmitting}
           className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
         >
           Add event

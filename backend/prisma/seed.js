@@ -47,8 +47,14 @@ async function seedWeek(week, data) {
 }
 
 async function main() {
-  const email = (process.env.ADMIN_EMAIL || 'admin@example.com').trim().toLowerCase();
-  const password = process.env.ADMIN_PASSWORD || 'admin123';
+  const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  const password = process.env.ADMIN_PASSWORD;
+  if (!email || !password) {
+    console.error('ADMIN_EMAIL and ADMIN_PASSWORD must be set. Copy .env.example to .env (see README).');
+    process.exitCode = 1;
+    return;
+  }
+
   const passwordHash = await bcrypt.hash(password, 10);
   await prisma.adminUser.upsert({ where: { email }, update: { passwordHash }, create: { email, passwordHash } });
 

@@ -90,7 +90,8 @@ npm run db:seed          # admin account + sample data from last week to 3 weeks
 npm run dev              # API on http://localhost:4000
 ```
 
-Leave this terminal running. The API refuses to start if `JWT_SECRET` is empty.
+Leave this terminal running. The API refuses to start if `JWT_SECRET` is empty, and the seed
+refuses to run if `ADMIN_EMAIL` or `ADMIN_PASSWORD` is empty.
 
 The seed only **creates what is missing**: running it again never overwrites numbers or events
 you edited in the admin. If you open the demo more than ~3 weeks later, run `npm run db:seed`
@@ -115,7 +116,7 @@ npm run dev              # app on http://localhost:3000
 | Chart for a given week | http://localhost:3000/?week=2026-W41 |
 | Admin login | http://localhost:3000/admin/login |
 
-Admin credentials (from the seed): **`admin@example.com` / `admin123`**
+Admin credentials (from `backend/.env.example`): **`admin@example.com` / `admin123`**
 (change them with `ADMIN_EMAIL` / `ADMIN_PASSWORD` in `backend/.env`, then run `npm run db:seed` again;
 this updates the admin account and leaves your data alone).
 
@@ -137,7 +138,8 @@ npm test
 Unit tests (Node's built-in test runner) cover ISO-week maths (including the 2026 → 2027
 53-week boundary), summary / percentage calculation, Decimal → number serialization,
 timezone safety, input validation (including values too large for the database columns),
-the 401 / 400 responses and the missing-`JWT_SECRET` startup check. They do not need the database.
+the 401 / 400 responses, the missing-`JWT_SECRET` startup check and the missing admin credentials
+seed check. They do not need the database.
 
 ## Database migrations
 

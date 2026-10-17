@@ -6,6 +6,13 @@ import { router as admin } from './routes/admin.js';
 
 export function createApp() {
   const app = express();
+  app.disable('x-powered-by');
+  // Requests arrive through the Next.js proxy on the same host; trust its X-Forwarded-For only.
+  app.set('trust proxy', 'loopback');
+  app.use((req, res, next) => {
+    res.set('X-Content-Type-Options', 'nosniff');
+    next();
+  });
   app.use(express.json());
   app.use(cookieParser());
 

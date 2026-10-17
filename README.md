@@ -182,7 +182,7 @@ Errors are JSON `{ "error": "message" }` with status 400 (invalid input), 401 (n
 ## Troubleshooting
 
 - **`port 5432 is already allocated`** — another PostgreSQL is running. Stop it, or change the
-  left side of `"5432:5432"` in `docker-compose.yml` and the port in `backend/.env` `DATABASE_URL`.
+  host port (the middle `5432`) of `"127.0.0.1:5432:5432"` in `docker-compose.yml` and the port in `backend/.env` `DATABASE_URL`.
 - **Port 3000 or 4000 in use** — run the frontend with `npm run dev -- -p 3001`; for the backend
   set `PORT` in `backend/.env` and `BACKEND_URL` in `frontend/.env.local` to match.
 - **Chart shows "Could not load revenue data"** — the backend is not running, or

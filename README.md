@@ -121,8 +121,8 @@ Admin credentials (from `backend/.env.example`): **`admin@example.com` / `admin1
 this updates the admin account and leaves your data alone).
 
 In the admin you can switch week, edit the 7 days (POS, Eatclub, labour, covers), save, and
-add/delete events. Open the chart again (or click **View chart for this week**) and it shows the
-saved numbers.
+add/delete events. Open the chart again (or click **View chart for this week**, which opens a new
+tab) and it shows the saved numbers.
 
 ![Admin](docs/screenshot-admin.png)
 

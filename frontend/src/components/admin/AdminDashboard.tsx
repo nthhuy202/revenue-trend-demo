@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, LogOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, ExternalLink, LogOut } from "lucide-react";
 import { api, ApiError, getErrorMessage } from "@/lib/api";
 import { formatDayMonth } from "@/lib/format";
 import type { AdminWeek, AuthUser } from "@/lib/types";
@@ -109,8 +109,14 @@ export default function AdminDashboard({ week: weekParam }: AdminDashboardProps)
             </button>
           )}
         </div>
-        <Link href={`/?week=${week}`} className="text-sm font-medium text-[#5b57f0] hover:underline">
-          View chart for this week →
+        <Link
+          href={`/?week=${week}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1 text-sm font-medium text-[#5b57f0] hover:underline"
+        >
+          View chart for this week <ExternalLink aria-hidden className="size-3.5" />
+          <span className="sr-only">(opens in a new tab)</span>
         </Link>
       </nav>
 

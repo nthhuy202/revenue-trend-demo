@@ -15,8 +15,23 @@ export const COLORS: Record<ColorKey, string> = {
   prevLabour: "#f6cdbb",
 };
 
+const LABELS: Record<ColorKey, string> = {
+  pos: "POS Revenue",
+  eatclub: "Eatclub Revenue",
+  labour: "Labour Costs",
+  prevPos: "Direct Revenue (Previous)",
+  prevEatclub: "Total Revenue (Previous)",
+  prevLabour: "Labour Costs (Previous)",
+};
+
 export const SERIES: SeriesOption[] = [
-  { key: "pos", label: "POS Revenue" },
-  { key: "eatclub", label: "Eatclub Revenue" },
-  { key: "labour", label: "Labour Costs" },
+  { key: "pos", label: LABELS.pos },
+  { key: "eatclub", label: LABELS.eatclub },
+  { key: "labour", label: LABELS.labour },
 ];
+
+const isSeriesKey = (key: ColorKey): key is SeriesKey => SERIES.some((series) => series.key === key);
+
+// In compare mode current-week series get a "(Current)" suffix to tell them apart from the previous week.
+export const getSeriesLabel = (key: ColorKey, isComparing: boolean) =>
+  isComparing && isSeriesKey(key) ? `${LABELS[key]} (Current)` : LABELS[key];

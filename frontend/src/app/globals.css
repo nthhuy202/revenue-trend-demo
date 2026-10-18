@@ -8,3 +8,8 @@ body {
   background: #f7f5f0;
   color: #1f1f1f;
 }
+
+/* Recharts focuses the chart layer on click; keep the ring for keyboard focus only. */
+.recharts-wrapper :focus:not(:focus-visible) {
+  outline: none;
+}

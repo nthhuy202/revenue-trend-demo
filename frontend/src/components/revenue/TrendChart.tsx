@@ -1,16 +1,28 @@
 "use client";
 
-import { Bar, BarChart, CartesianGrid, ReferenceDot, ResponsiveContainer, XAxis, YAxis } from "recharts";
+import { useState } from "react";
+import { Bar, BarChart, CartesianGrid, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { formatK } from "@/lib/format";
 import type { RevenueTrendResponse } from "@/lib/types";
+import ChartTooltip from "./ChartTooltip";
 import EventBadge from "./EventBadge";
-import { COLORS, type Visible } from "./series";
+import { COLORS, type ColorKey, type Visible } from "./series";
 
 type TrendChartProps = { data: RevenueTrendResponse; visible: Visible; isComparing: boolean };
 
 type Radius = [number, number, number, number];
 
 type ReferenceDotShapeProps = { cx?: number; cy?: number };
+
+type StackId = "cur" | "labour" | "prev" | "prevLabour";
+
+// The tooltip lists only the series of the column under the mouse, not every bar of the day.
+const STACK_KEYS: Record<StackId, ColorKey[]> = {
+  cur: ["pos", "eatclub"],
+  labour: ["labour"],
+  prev: ["prevPos", "prevEatclub"],
+  prevLabour: ["prevLabour"],
+};
 
 const BAR_RADIUS = 4;
 const FULL: Radius = [BAR_RADIUS, BAR_RADIUS, BAR_RADIUS, BAR_RADIUS];
@@ -34,7 +46,9 @@ function buildTicks(max: number) {
 }
 
 export default function TrendChart({ data, visible, isComparing }: TrendChartProps) {
+  const [hoveredStack, setHoveredStack] = useState<StackId | null>(null);
   const shouldShowPrev = isComparing && data.previous.days.some((day) => day.hasData);
+  const hasData = data.current.days.some((day) => day.hasData);
 
   const rows = data.current.days.map((day, index) => {
     const previousDay = data.previous.days[index];
@@ -74,11 +88,21 @@ export default function TrendChart({ data, visible, isComparing }: TrendChartPro
     })
     .filter((badge) => badge.index >= 0);
 
+  const getHoverHandlers = (stack: StackId) => ({
+    onMouseEnter: () => setHoveredStack(stack),
+    onMouseLeave: () => setHoveredStack(null),
+  });
+
   return (
     <>
       <p className="mb-1 text-right text-xs text-neutral-400 sm:hidden">Swipe to see all days →</p>
       <div className="-mx-1 overflow-x-auto px-1">
-        <div className="h-[320px] min-w-[640px]">
+        <div className="relative h-[320px] min-w-[640px]">
+          {!hasData && (
+            <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-neutral-500">
+              No data for this week yet
+            </p>
+          )}
           <ResponsiveContainer width="100%" height="100%">
             {/* Remount when the set of bars changes: Recharts stacks in registration order, so a re-added
                 series would otherwise land on top of its stack. */}
@@ -99,25 +123,32 @@ export default function TrendChart({ data, visible, isComparing }: TrendChartPro
                 axisLine={false}
                 tick={AXIS_TICK}
               />
+              <Tooltip
+                cursor={false}
+                isAnimationActive={false}
+                content={(props) => (
+                  <ChartTooltip {...props} keys={hoveredStack ? STACK_KEYS[hoveredStack] : []} isComparing={isComparing} />
+                )}
+              />
 
               {visible.pos && (
-                <Bar dataKey="pos" stackId="cur" fill={COLORS.pos} radius={posRadius} maxBarSize={MAX_BAR_SIZE} animationDuration={ANIMATION_MS} />
+                <Bar dataKey="pos" stackId="cur" fill={COLORS.pos} radius={posRadius} maxBarSize={MAX_BAR_SIZE} animationDuration={ANIMATION_MS} {...getHoverHandlers("cur")} />
               )}
               {visible.eatclub && (
-                <Bar dataKey="eatclub" stackId="cur" fill={COLORS.eatclub} radius={eatclubRadius} maxBarSize={MAX_BAR_SIZE} animationDuration={ANIMATION_MS} />
+                <Bar dataKey="eatclub" stackId="cur" fill={COLORS.eatclub} radius={eatclubRadius} maxBarSize={MAX_BAR_SIZE} animationDuration={ANIMATION_MS} {...getHoverHandlers("cur")} />
               )}
               {visible.labour && (
-                <Bar dataKey="labour" stackId="labour" fill={COLORS.labour} radius={FULL} maxBarSize={MAX_BAR_SIZE} animationDuration={ANIMATION_MS} />
+                <Bar dataKey="labour" stackId="labour" fill={COLORS.labour} radius={FULL} maxBarSize={MAX_BAR_SIZE} animationDuration={ANIMATION_MS} {...getHoverHandlers("labour")} />
               )}
 
               {shouldShowPrev && visible.pos && (
-                <Bar dataKey="prevPos" stackId="prev" fill={COLORS.prevPos} radius={posRadius} maxBarSize={MAX_BAR_SIZE} animationDuration={ANIMATION_MS} />
+                <Bar dataKey="prevPos" stackId="prev" fill={COLORS.prevPos} radius={posRadius} maxBarSize={MAX_BAR_SIZE} animationDuration={ANIMATION_MS} {...getHoverHandlers("prev")} />
               )}
               {shouldShowPrev && visible.eatclub && (
-                <Bar dataKey="prevEatclub" stackId="prev" fill={COLORS.prevEatclub} radius={eatclubRadius} maxBarSize={MAX_BAR_SIZE} animationDuration={ANIMATION_MS} />
+                <Bar dataKey="prevEatclub" stackId="prev" fill={COLORS.prevEatclub} radius={eatclubRadius} maxBarSize={MAX_BAR_SIZE} animationDuration={ANIMATION_MS} {...getHoverHandlers("prev")} />
               )}
               {shouldShowPrev && visible.labour && (
-                <Bar dataKey="prevLabour" stackId="prevLabour" fill={COLORS.prevLabour} radius={FULL} maxBarSize={MAX_BAR_SIZE} animationDuration={ANIMATION_MS} />
+                <Bar dataKey="prevLabour" stackId="prevLabour" fill={COLORS.prevLabour} radius={FULL} maxBarSize={MAX_BAR_SIZE} animationDuration={ANIMATION_MS} {...getHoverHandlers("prevLabour")} />
               )}
 
               {badges.map((badge) => (

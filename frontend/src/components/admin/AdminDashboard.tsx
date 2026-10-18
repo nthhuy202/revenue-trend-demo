@@ -10,10 +10,15 @@ import type { AdminWeek, AuthUser } from "@/lib/types";
 import { getCurrentIsoWeek, shiftWeek } from "@/lib/week";
 import EventsEditor from "./EventsEditor";
 import WeekEditor from "./WeekEditor";
+import WeekSkeleton from "./WeekSkeleton";
 
 type AdminDashboardProps = { week?: string };
 
 const UNAUTHORIZED = 401;
+// A local API answers in ~20ms; without a floor the skeleton is a flicker nobody reads as loading.
+const MIN_SKELETON_MS = 350;
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export default function AdminDashboard({ week: weekParam }: AdminDashboardProps) {
   const router = useRouter();
@@ -37,14 +42,20 @@ export default function AdminDashboard({ week: weekParam }: AdminDashboardProps)
   // Drop responses for a week the admin has already navigated away from (slow request + quick clicks).
   const viewedWeek = useRef(week);
   viewedWeek.current = week;
-  const loadWeek = useCallback(() => {
-    setError(null);
-    api<AdminWeek>(`/api/admin/weeks/${week}`).then((weekData) => {
-      if (weekData.week === viewedWeek.current) setData(weekData);
-    }, handleRequestError);
-  }, [week, handleRequestError]);
+  // minLoadingMs only when switching week; reloading after an event change keeps the editor on screen.
+  const loadWeek = useCallback(
+    (minLoadingMs = 0) => {
+      setError(null);
+      Promise.all([api<AdminWeek>(`/api/admin/weeks/${week}`), wait(minLoadingMs)]).then(([weekData]) => {
+        if (weekData.week === viewedWeek.current) setData(weekData);
+      }, handleRequestError);
+    },
+    [week, handleRequestError],
+  );
 
-  useEffect(loadWeek, [loadWeek]);
+  useEffect(() => {
+    loadWeek(MIN_SKELETON_MS);
+  }, [loadWeek]);
 
   // Only show data that belongs to the week in the URL; editors copy it into local state on mount.
   const current = data?.week === week ? data : null;
@@ -132,7 +143,7 @@ export default function AdminDashboard({ week: weekParam }: AdminDashboardProps)
           <EventsEditor key={`events-${current.week}`} days={current.days} events={current.events} onChanged={loadWeek} />
         </>
       ) : (
-        !error && <div className="h-64 animate-pulse rounded-2xl bg-neutral-100" aria-label="Loading" />
+        !error && <WeekSkeleton />
       )}
     </main>
   );

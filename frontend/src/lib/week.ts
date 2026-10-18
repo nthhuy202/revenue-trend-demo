@@ -20,6 +20,9 @@ export function getIsoWeek(date: Date) {
 
 export const getCurrentIsoWeek = () => getIsoWeek(new Date());
 
+// Zero-padded YYYY-Www strings sort chronologically, so a string compare is enough.
+export const isAfterCurrentWeek = (week: string) => week > getCurrentIsoWeek();
+
 export const isIsoWeek = (value: string | null | undefined): value is string => !!value && ISO_WEEK_PATTERN.test(value);
 
 function getMondayOf(week: string) {

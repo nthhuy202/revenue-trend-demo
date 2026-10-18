@@ -1,6 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseIsoWeek, currentIsoWeek, weekDates, previousWeek, nextWeek } from '../src/lib/week.js';
+import { parseIsoWeek, currentIsoWeek, weekDates, previousWeek, nextWeek, isAfterCurrentWeek } from '../src/lib/week.js';
+
+test('isAfterCurrentWeek compares across the year boundary', () => {
+  const now = new Date('2026-12-30T12:00:00Z'); // 2026-W53
+  assert.equal(isAfterCurrentWeek('2026-W53', now), false);
+  assert.equal(isAfterCurrentWeek('2026-W09', now), false);
+  assert.equal(isAfterCurrentWeek('2027-W01', now), true);
+});
 
 test('weekDates returns Monday..Sunday of the ISO week', () => {
   const days = weekDates('2026-W42');

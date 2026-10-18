@@ -7,7 +7,7 @@ import { ChevronLeft, ChevronRight, ExternalLink, LogOut } from "lucide-react";
 import { api, ApiError, getErrorMessage } from "@/lib/api";
 import { formatDayMonth } from "@/lib/format";
 import type { AdminWeek, AuthUser } from "@/lib/types";
-import { getCurrentIsoWeek, shiftWeek } from "@/lib/week";
+import { getCurrentIsoWeek, isAfterCurrentWeek, shiftWeek } from "@/lib/week";
 import EventsEditor from "./EventsEditor";
 import WeekEditor from "./WeekEditor";
 import WeekSkeleton from "./WeekSkeleton";
@@ -75,6 +75,8 @@ export default function AdminDashboard({ week: weekParam }: AdminDashboardProps)
     router.push(`/admin?week=${targetWeek}`);
   };
 
+  const isCurrentWeek = week === getCurrentIsoWeek();
+  const canGoForward = !isAfterCurrentWeek(shiftWeek(week, 1));
   const range = current ? `${formatDayMonth(current.days[0].date)} – ${formatDayMonth(current.days[6].date)}` : "…";
 
   return (
@@ -109,12 +111,14 @@ export default function AdminDashboard({ week: weekParam }: AdminDashboardProps)
           <button
             type="button"
             aria-label="Next week"
+            title={canGoForward ? undefined : "Weeks after the current week cannot be edited"}
+            disabled={!canGoForward}
             onClick={() => goToWeek(shiftWeek(week, 1))}
-            className="rounded-lg border border-neutral-200 p-1.5 hover:bg-neutral-50"
+            className="rounded-lg border border-neutral-200 p-1.5 hover:bg-neutral-50 disabled:opacity-40 disabled:hover:bg-transparent"
           >
             <ChevronRight className="size-4" />
           </button>
-          {week !== getCurrentIsoWeek() && (
+          {!isCurrentWeek && (
             <button type="button" onClick={() => goToWeek(getCurrentIsoWeek())} className="text-sm text-neutral-600 underline">
               This week
             </button>

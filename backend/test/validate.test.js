@@ -6,6 +6,15 @@ import { weekDates } from '../src/lib/week.js';
 const validDays = () =>
   weekDates('2026-W42').map((date) => ({ date, posRevenue: 1800, eatclubRevenue: 300, labourCosts: 650.5, covers: 120 }));
 
+test('weeks after the current week cannot be edited', () => {
+  const now = new Date('2026-10-14T12:00:00Z'); // 2026-W42
+  assert.equal(validateDays('2026-W42', validDays(), now).ok, true);
+  const nextWeekDays = weekDates('2026-W43').map((date) => ({ ...validDays()[0], date }));
+  assert.match(validateDays('2026-W43', nextWeekDays, now).error, /after the current week/);
+  assert.equal(validateEvent({ date: '2026-10-18', impact: 'positive', label: 'x' }, now).ok, true);
+  assert.match(validateEvent({ date: '2026-10-19', impact: 'positive', label: 'x' }, now).error, /after the current week/);
+});
+
 test('validateDays accepts seven valid days of the week', () => {
   const result = validateDays('2026-W42', validDays());
   assert.equal(result.ok, true);

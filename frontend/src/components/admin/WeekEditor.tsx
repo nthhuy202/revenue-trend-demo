@@ -107,6 +107,8 @@ export default function WeekEditor({ week, days, onSaved }: WeekEditorProps) {
                       aria-label={`${field.label} ${row.weekday}`}
                       value={row[field.key]}
                       onChange={(event) => updateField(rowIndex, field.key, event.target.value)}
+                      // Scrolling the page over a focused number input would silently change the figure.
+                      onWheel={(event) => event.currentTarget.blur()}
                       className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 tabular-nums outline-none focus:border-neutral-900"
                     />
                   </td>

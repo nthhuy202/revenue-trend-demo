@@ -1,17 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { toPng } from "html-to-image";
+import dynamic from "next/dynamic";
 import { BarChart3, Download } from "lucide-react";
 import { api, getErrorMessage } from "@/lib/api";
 import { formatDayMonth } from "@/lib/format";
 import type { RevenueTrendResponse } from "@/lib/types";
 import { getCurrentIsoWeek } from "@/lib/week";
 import ChartLegend from "./ChartLegend";
+import ChartSkeleton from "./ChartSkeleton";
 import KpiTiles from "./KpiTiles";
 import SeriesToggles from "./SeriesToggles";
-import TrendChart from "./TrendChart";
 import type { SeriesKey, Visible } from "./series";
+
+// Recharts is the heaviest dependency; keep it out of the initial bundle.
+const loadTrendChart = () => import("./TrendChart");
+const TrendChart = dynamic(loadTrendChart, { ssr: false, loading: ChartSkeleton });
 
 type RevenueTrendCardProps = { week?: string };
 
@@ -45,6 +49,11 @@ export default function RevenueTrendCard({ week }: RevenueTrendCardProps) {
 
   useEffect(loadTrend, [loadTrend]);
 
+  // Start downloading the chart chunk alongside the data request instead of after it arrives.
+  useEffect(() => {
+    loadTrendChart();
+  }, []);
+
   const toggleSeries = (key: SeriesKey) => setVisible((current) => ({ ...current, [key]: !current[key] }));
 
   async function handleExportPng() {
@@ -54,6 +63,8 @@ export default function RevenueTrendCard({ week }: RevenueTrendCardProps) {
     setExportError(null);
 
     try {
+      // Only needed on click, so it is not part of the page bundle.
+      const { toPng } = await import("html-to-image");
       const imageUrl = await toPng(cardRef.current, {
         pixelRatio: EXPORT_PIXEL_RATIO,
         backgroundColor: "#ffffff",
@@ -124,13 +135,13 @@ export default function RevenueTrendCard({ week }: RevenueTrendCardProps) {
       )}
 
       {!error && !data && (
-        <div className="mt-8 animate-pulse space-y-6" aria-label="Loading">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+        <div role="status" aria-label="Loading revenue data" className="mt-8 space-y-6">
+          <div className="grid animate-pulse grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
             {SKELETON_TILES.map((tile) => (
               <div key={tile} className="h-[74px] rounded-xl bg-neutral-100" />
             ))}
           </div>
-          <div className="h-[320px] rounded-xl bg-neutral-100" />
+          <ChartSkeleton />
         </div>
       )}
 

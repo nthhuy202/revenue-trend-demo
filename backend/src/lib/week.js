@@ -35,6 +35,9 @@ export function isoWeekOf(date) {
 
 export const currentIsoWeek = (now = new Date()) => isoWeekOf(now);
 
+// Zero-padded YYYY-Www strings sort chronologically, so a string compare is enough.
+export const isAfterCurrentWeek = (weekStr, now = new Date()) => weekStr > currentIsoWeek(now);
+
 function mondayOf(weekStr) {
   const parsed = parseIsoWeek(weekStr);
   if (!parsed) throw new Error(`Invalid ISO week: ${weekStr}`);

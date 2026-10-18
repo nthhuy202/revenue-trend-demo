@@ -3,17 +3,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, LogOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, ExternalLink, LogOut } from "lucide-react";
 import { api, ApiError, getErrorMessage } from "@/lib/api";
 import { formatDayMonth } from "@/lib/format";
 import type { AdminWeek, AuthUser } from "@/lib/types";
-import { getCurrentIsoWeek, shiftWeek } from "@/lib/week";
+import { getCurrentIsoWeek, isAfterCurrentWeek, shiftWeek } from "@/lib/week";
 import EventsEditor from "./EventsEditor";
 import WeekEditor from "./WeekEditor";
+import WeekSkeleton from "./WeekSkeleton";
 
 type AdminDashboardProps = { week?: string };
 
 const UNAUTHORIZED = 401;
+// A local API answers in ~20ms; without a floor the skeleton is a flicker nobody reads as loading.
+const MIN_SKELETON_MS = 350;
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export default function AdminDashboard({ week: weekParam }: AdminDashboardProps) {
   const router = useRouter();
@@ -37,14 +42,20 @@ export default function AdminDashboard({ week: weekParam }: AdminDashboardProps)
   // Drop responses for a week the admin has already navigated away from (slow request + quick clicks).
   const viewedWeek = useRef(week);
   viewedWeek.current = week;
-  const loadWeek = useCallback(() => {
-    setError(null);
-    api<AdminWeek>(`/api/admin/weeks/${week}`).then((weekData) => {
-      if (weekData.week === viewedWeek.current) setData(weekData);
-    }, handleRequestError);
-  }, [week, handleRequestError]);
+  // minLoadingMs only when switching week; reloading after an event change keeps the editor on screen.
+  const loadWeek = useCallback(
+    (minLoadingMs = 0) => {
+      setError(null);
+      Promise.all([api<AdminWeek>(`/api/admin/weeks/${week}`), wait(minLoadingMs)]).then(([weekData]) => {
+        if (weekData.week === viewedWeek.current) setData(weekData);
+      }, handleRequestError);
+    },
+    [week, handleRequestError],
+  );
 
-  useEffect(loadWeek, [loadWeek]);
+  useEffect(() => {
+    loadWeek(MIN_SKELETON_MS);
+  }, [loadWeek]);
 
   // Only show data that belongs to the week in the URL; editors copy it into local state on mount.
   const current = data?.week === week ? data : null;
@@ -64,6 +75,8 @@ export default function AdminDashboard({ week: weekParam }: AdminDashboardProps)
     router.push(`/admin?week=${targetWeek}`);
   };
 
+  const isCurrentWeek = week === getCurrentIsoWeek();
+  const canGoForward = !isAfterCurrentWeek(shiftWeek(week, 1));
   const range = current ? `${formatDayMonth(current.days[0].date)} – ${formatDayMonth(current.days[6].date)}` : "…";
 
   return (
@@ -98,19 +111,27 @@ export default function AdminDashboard({ week: weekParam }: AdminDashboardProps)
           <button
             type="button"
             aria-label="Next week"
+            title={canGoForward ? undefined : "Weeks after the current week cannot be edited"}
+            disabled={!canGoForward}
             onClick={() => goToWeek(shiftWeek(week, 1))}
-            className="rounded-lg border border-neutral-200 p-1.5 hover:bg-neutral-50"
+            className="rounded-lg border border-neutral-200 p-1.5 hover:bg-neutral-50 disabled:opacity-40 disabled:hover:bg-transparent"
           >
             <ChevronRight className="size-4" />
           </button>
-          {week !== getCurrentIsoWeek() && (
+          {!isCurrentWeek && (
             <button type="button" onClick={() => goToWeek(getCurrentIsoWeek())} className="text-sm text-neutral-600 underline">
               This week
             </button>
           )}
         </div>
-        <Link href={`/?week=${week}`} className="text-sm font-medium text-[#5b57f0] hover:underline">
-          View chart for this week →
+        <Link
+          href={`/?week=${week}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1 text-sm font-medium text-[#5b57f0] hover:underline"
+        >
+          View chart for this week <ExternalLink aria-hidden className="size-3.5" />
+          <span className="sr-only">(opens in a new tab)</span>
         </Link>
       </nav>
 
@@ -126,7 +147,7 @@ export default function AdminDashboard({ week: weekParam }: AdminDashboardProps)
           <EventsEditor key={`events-${current.week}`} days={current.days} events={current.events} onChanged={loadWeek} />
         </>
       ) : (
-        !error && <div className="h-64 animate-pulse rounded-2xl bg-neutral-100" aria-label="Loading" />
+        !error && <WeekSkeleton />
       )}
     </main>
   );

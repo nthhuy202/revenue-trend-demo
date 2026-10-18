@@ -1,4 +1,4 @@
-import { weekDates } from './week.js';
+import { isAfterCurrentWeek, isoWeekOf, weekDates } from './week.js';
 
 const MONEY_FIELDS = ['posRevenue', 'eatclubRevenue', 'labourCosts'];
 const IMPACTS = ['positive', 'negative'];
@@ -34,7 +34,8 @@ export function isValidDate(str) {
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === str;
 }
 
-export function validateDays(week, days) {
+export function validateDays(week, days, now = new Date()) {
+  if (isAfterCurrentWeek(week, now)) return fail('Weeks after the current week cannot be edited');
   if (!Array.isArray(days)) return fail('days must be an array');
   const dates = weekDates(week);
   if (days.length !== 7) return fail('days must contain exactly 7 entries (Mon–Sun)');
@@ -55,10 +56,11 @@ export function validateDays(week, days) {
   return { ok: true, value };
 }
 
-export function validateEvent(body) {
+export function validateEvent(body, now = new Date()) {
   const { date, impact } = body ?? {};
   const label = typeof body?.label === 'string' ? body.label.trim() : '';
   if (typeof date !== 'string' || !isValidDate(date)) return fail('date must be a valid YYYY-MM-DD date');
+  if (isAfterCurrentWeek(isoWeekOf(new Date(date)), now)) return fail('Events cannot be added to weeks after the current week');
   if (!IMPACTS.includes(impact)) return fail('impact must be "positive" or "negative"');
   if (!label) return fail('label is required');
   if (label.length > 80) return fail('label must be at most 80 characters');
